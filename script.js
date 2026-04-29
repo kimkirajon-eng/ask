@@ -281,11 +281,41 @@ socket.on('death_limit_saved', () => {
 
 const GRAVITY     = 0.35;
 const FLAP_POWER  = -7;
-const PIPE_GAP    = 120;
-const PIPE_WIDTH  = 50;
-const PIPE_SPEED  = 2;
 const BIRD_RADIUS = 16;
-const W = 400, H = 300;
+
+// Oyun sabitleri — canvas boyutuna göre ölçeklenir
+// W ve H startGame'de canvas.width/height'tan okunur
+let W = 400, H = 300;
+let PIPE_GAP   = 130;
+let PIPE_WIDTH = 52;
+let PIPE_SPEED = 2.2;
+
+// Canvas'ı wrapper'ını tam dolduracak şekilde boyutlandır
+function resizeCanvases() {
+  ['ceylan', 'hakki'].forEach(role => {
+    const canvasId  = role === 'ceylan' ? 'ceylanCanvas' : 'hakkiCanvas';
+    const wrapperId = role === 'ceylan' ? undefined : undefined; // wrapper = canvas.parentElement
+    const canvas    = document.getElementById(canvasId);
+    if (!canvas) return;
+    const wrapper = canvas.parentElement;
+    const ww = wrapper.clientWidth;
+    const wh = wrapper.clientHeight;
+    if (ww > 0 && wh > 0) {
+      canvas.width  = ww;
+      canvas.height = wh;
+    }
+  });
+  // W ve H'yi güncelle (her iki canvas aynı boyutta olacak)
+  const c = document.getElementById('ceylanCanvas');
+  if (c && c.width > 0) {
+    W = c.width;
+    H = c.height;
+    // Boru aralığını ekran yüksekliğine oranla ayarla
+    PIPE_GAP   = Math.round(H * 0.42);
+    PIPE_WIDTH = Math.round(W * 0.07);
+    PIPE_SPEED = W < 500 ? 2 : 2.5;
+  }
+}
 
 let birds      = {};
 let pipes      = { ceylan: [], hakki: [] };
@@ -302,31 +332,41 @@ function startGame() {
   deathLimit  = setup.deathLimit || 3;
   gameMode    = setup.mode       || 'Normal';
 
-  ctxCeylan = document.getElementById('ceylanCanvas').getContext('2d');
-  ctxHakki  = document.getElementById('hakkiCanvas').getContext('2d');
-
-  birds    = {
-    ceylan: { x: 80, y: 150, vel: 0, alive: true },
-    hakki:  { x: 80, y: 150, vel: 0, alive: true },
-  };
-  pipes    = { ceylan: [], hakki: [] };
-  scores   = { ceylan: 0, hakki: 0 };
-  deaths   = { ceylan: 0, hakki: 0 };
-  pipeTick = 0;
-  gameRunning = true;
-
-  // Oyun ekranını göster
+  // Önce ekranı göster — wrapper boyutları ancak sonra okunabilir
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('gameScreen').classList.add('active');
 
-  // Kontroller
-  document.addEventListener('keydown', handleKey);
-  document.getElementById('ceylanCanvas').addEventListener('click',      () => flapMe('ceylan'));
-  document.getElementById('hakkiCanvas').addEventListener('click',       () => flapMe('hakki'));
-  document.getElementById('ceylanCanvas').addEventListener('touchstart', e  => { e.preventDefault(); flapMe('ceylan'); }, { passive: false });
-  document.getElementById('hakkiCanvas').addEventListener('touchstart',  e  => { e.preventDefault(); flapMe('hakki');  }, { passive: false });
+  requestAnimationFrame(() => {
+    resizeCanvases();
 
-  loop();
+    ctxCeylan = document.getElementById('ceylanCanvas').getContext('2d');
+    ctxHakki  = document.getElementById('hakkiCanvas').getContext('2d');
+
+    birds    = {
+      ceylan: { x: Math.round(W * 0.2), y: Math.round(H * 0.5), vel: 0, alive: true },
+      hakki:  { x: Math.round(W * 0.2), y: Math.round(H * 0.5), vel: 0, alive: true },
+    };
+    pipes    = { ceylan: [], hakki: [] };
+    scores   = { ceylan: 0, hakki: 0 };
+    deaths   = { ceylan: 0, hakki: 0 };
+    pipeTick = 0;
+    gameRunning = true;
+
+    document.addEventListener('keydown', handleKey);
+    document.getElementById('ceylanCanvas').addEventListener('click',      () => flapMe('ceylan'));
+    document.getElementById('hakkiCanvas').addEventListener('click',       () => flapMe('hakki'));
+    document.getElementById('ceylanCanvas').addEventListener('touchstart', e  => { e.preventDefault(); flapMe('ceylan'); }, { passive: false });
+    document.getElementById('hakkiCanvas').addEventListener('touchstart',  e  => { e.preventDefault(); flapMe('hakki');  }, { passive: false });
+
+    loop();
+  });
+
+  window.addEventListener('resize', () => {
+    resizeCanvases();
+    if (birds.ceylan) { birds.ceylan.x = Math.round(W*0.2); birds.ceylan.y = Math.round(H*0.5); }
+    if (birds.hakki)  { birds.hakki.x  = Math.round(W*0.2); birds.hakki.y  = Math.round(H*0.5); }
+    pipes = { ceylan: [], hakki: [] };
+  });
 }
 
 function handleKey(e) {
@@ -415,7 +455,7 @@ function handleDeath(role) {
   // Yeniden doğ
   setTimeout(() => {
     if (!gameRunning) return;
-    birds[role] = { x: 80, y: 150, vel: 0, alive: true };
+    birds[role] = { x: Math.round(W*0.2), y: Math.round(H*0.5), vel: 0, alive: true };
     pipes[role] = [];
   }, 800);
 }
