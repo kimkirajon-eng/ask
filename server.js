@@ -1,191 +1,177 @@
 const express = require('express');
 const http = require('http');
-const socketIO = require('socket.io');
+const { Server } = require('socket.io');
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+const io = new Server(server, {
+  cors: { origin: '*' }
 });
 
-// ANA DİZİNDEN STATİK DOSYALARI SUN
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname)));
 
-// Ana sayfayı sun
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Oyun oturumunu yönet
-let gameRoom = {
-  players: {},
-  gameStarted: false,
-  gameData: {
-    ceylan: {
-      name: '',
-      bet: '',
-      deathLimit: 0,
-      isPlaying: true,
-      currentScore: 0,
-      deaths: 0
-    },
-    hakki: {
-      name: '',
-      bet: '',
-      isPlaying: true,
-      loveMode: false,
-      currentScore: 0,
-      deaths: 0
-    }
-  }
+// Tek oda: iki kişilik oyun
+let room = {
+  players: {},       // socketId -> { name, role }
+  roles: {},         // 'Ceylan' | 'Hakkı' -> socketId
+  setup: {
+    ceylanBet: null,
+    hakkiBet: null,
+    deathLimit: 3,
+    mode: null
+  },
+  gameState: null,
+  readyToStart: 0
 };
 
-io.on('connection', (socket) => {
-  console.log('Yeni kullanıcı bağlandı:', socket.id);
+function resetRoom() {
+  room = {
+    players: {},
+    roles: {},
+    setup: {
+      ceylanBet: null,
+      hakkiBet: null,
+      deathLimit: 3,
+      mode: null
+    },
+    gameState: null,
+    readyToStart: 0
+  };
+}
 
-  const playerCount = Object.keys(gameRoom.players).length;
-  
-  if (playerCount === 0) {
-    gameRoom.players[socket.id] = 'ceylan';
-    socket.emit('playerAssigned', { role: 'ceylan' });
-    io.emit('waitingForPlayer', { message: 'Hakkı\'yı bekliyorum...' });
-  } else if (playerCount === 1) {
-    gameRoom.players[socket.id] = 'hakki';
-    socket.emit('playerAssigned', { role: 'hakki' });
-    io.emit('bothPlayersReady', { message: 'Her iki oyuncu hazır!' });
-  } else {
-    socket.emit('roomFull', { message: 'Oda dolu! Başka bir zamanda deneyin.' });
-    socket.disconnect();
+io.on('connection', (socket) => {
+  console.log('Bağlandı:', socket.id);
+
+  // Kaç kişi bağlı
+  const playerCount = Object.keys(room.players).length;
+
+  if (playerCount >= 2) {
+    socket.emit('room_full');
     return;
   }
 
-  socket.on('gameSetup', (data) => {
-    const playerRole = gameRoom.players[socket.id];
-    
-    if (playerRole === 'ceylan') {
-      gameRoom.gameData.ceylan.name = data.name;
-      gameRoom.gameData.ceylan.bet = data.bet;
-      gameRoom.gameData.ceylan.deathLimit = data.deathLimit;
-    } else if (playerRole === 'hakki') {
-      gameRoom.gameData.hakki.name = data.name;
-      gameRoom.gameData.hakki.bet = data.bet;
-    }
+  socket.emit('connection_ok', { playerCount });
 
-    if (gameRoom.gameData.ceylan.name && gameRoom.gameData.hakki.name) {
-      gameRoom.gameStarted = true;
-      io.emit('startGame', gameRoom.gameData);
-    }
-  });
-
-  socket.on('jump', (data) => {
-    const playerRole = gameRoom.players[socket.id];
-    io.emit('playerJumped', { player: playerRole, timestamp: Date.now() });
-  });
-
-  socket.on('playerDied', (data) => {
-    const playerRole = gameRoom.players[socket.id];
-    gameRoom.gameData[playerRole].deaths += 1;
-    gameRoom.gameData[playerRole].currentScore = data.score;
-    gameRoom.gameData[playerRole].isPlaying = false;
-
-    if (gameRoom.gameData.hakki.loveMode) {
-      io.emit('gameOver', {
-        winner: 'ceylan',
-        reason: 'loveMode',
-        ceylanDeaths: gameRoom.gameData.ceylan.deaths,
-        hakkiDeaths: gameRoom.gameData.hakki.deaths,
-        ceylanScore: gameRoom.gameData.ceylan.currentScore,
-        hakkiScore: gameRoom.gameData.hakki.currentScore,
-        ceylanBet: gameRoom.gameData.ceylan.bet,
-        hakkiBet: gameRoom.gameData.hakki.bet
-      });
-      resetGame();
+  // --- KARAKTER SEÇİMİ ---
+  socket.on('select_character', ({ name }) => {
+    if (room.roles[name]) {
+      socket.emit('character_taken', { name });
       return;
     }
-
-    if (playerRole === 'ceylan' && gameRoom.gameData.ceylan.deaths >= gameRoom.gameData.ceylan.deathLimit) {
-      io.emit('gameOver', {
-        winner: 'hakki',
-        reason: 'deathLimit',
-        ceylanDeaths: gameRoom.gameData.ceylan.deaths,
-        hakkiDeaths: gameRoom.gameData.hakki.deaths,
-        ceylanScore: gameRoom.gameData.ceylan.currentScore,
-        hakkiScore: gameRoom.gameData.hakki.currentScore,
-        ceylanBet: gameRoom.gameData.ceylan.bet,
-        hakkiBet: gameRoom.gameData.hakki.bet,
-        deathLimit: gameRoom.gameData.ceylan.deathLimit
-      });
-      resetGame();
-      return;
+    // Önceki rolü temizle
+    for (const [role, sid] of Object.entries(room.roles)) {
+      if (sid === socket.id) delete room.roles[role];
     }
-
-    io.emit('updateDeaths', {
-      ceylan: gameRoom.gameData.ceylan.deaths,
-      hakki: gameRoom.gameData.hakki.deaths
+    room.roles[name] = socket.id;
+    room.players[socket.id] = { name, role: name };
+    socket.emit('character_confirmed', { name });
+    io.emit('room_status', {
+      takenRoles: Object.keys(room.roles),
+      playerCount: Object.keys(room.players).length
     });
   });
 
-  socket.on('activateLoveMode', () => {
-    gameRoom.gameData.hakki.loveMode = true;
-    io.emit('loveModeActivated', { message: '💕 Aşk Modu aktif!' });
-  });
+  // --- BET KAYDET ---
+  socket.on('save_bet', ({ name, bet }) => {
+    if (name === 'Ceylan') room.setup.ceylanBet = bet;
+    if (name === 'Hakkı') room.setup.hakkiBet = bet;
 
-  socket.on('updateScore', (data) => {
-    const playerRole = gameRoom.players[socket.id];
-    gameRoom.gameData[playerRole].currentScore = data.score;
-    io.emit('scoreUpdated', {
-      ceylan: gameRoom.gameData.ceylan.currentScore,
-      hakki: gameRoom.gameData.hakki.currentScore
-    });
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Kullanıcı ayrıldı:', socket.id);
-    delete gameRoom.players[socket.id];
-    
-    if (Object.keys(gameRoom.players).length === 0) {
-      resetGame();
+    // İkisi de bet kaydetmişse haber ver
+    if (room.setup.ceylanBet && room.setup.hakkiBet) {
+      io.emit('both_bets_ready');
     } else {
-      io.emit('playerDisconnected', { message: 'Karşı oyuncu bağlantısı kesti.' });
+      socket.emit('bet_saved');
     }
   });
 
-  socket.on('resetGame', () => {
-    resetGame();
+  // --- CEYLAN GİZLİ AYAR ---
+  socket.on('save_death_limit', ({ deathLimit }) => {
+    room.setup.deathLimit = parseInt(deathLimit) || 3;
+    socket.emit('death_limit_saved');
+    // Hakkı'ya sıra bildirimi gönder (hazır olması için)
+    const hakkiSocketId = room.roles['Hakkı'];
+    if (hakkiSocketId) {
+      io.to(hakkiSocketId).emit('ceylan_setup_done');
+    }
+  });
+
+  // --- HAKKI MOD SEÇİMİ ---
+  socket.on('save_mode', ({ mode }) => {
+    room.setup.mode = mode;
+    socket.emit('mode_saved');
+  });
+
+  // --- OYUN HAZIR ---
+  socket.on('player_ready', () => {
+    room.readyToStart++;
+    if (room.readyToStart >= 2) {
+      room.readyToStart = 0;
+      room.gameState = {
+        ceylan: { score: 0, deaths: 0, alive: true, x: 80, y: 150, vel: 0 },
+        hakki:  { score: 0, deaths: 0, alive: true, x: 80, y: 150, vel: 0 },
+        pipes: [],
+        tick: 0,
+        started: true,
+        over: false
+      };
+      io.emit('game_start', { setup: room.setup });
+    } else {
+      socket.emit('waiting_for_other');
+    }
+  });
+
+  // --- OYUNCU ATLAMA (flap) ---
+  socket.on('flap', ({ name }) => {
+    io.emit('player_flap', { name });
+  });
+
+  // --- SKOR / ÖLÜM GÜNCELLE ---
+  socket.on('update_state', ({ name, score, deaths }) => {
+    if (!room.gameState) return;
+    const key = name === 'Ceylan' ? 'ceylan' : 'hakki';
+    room.gameState[key].score = score;
+    room.gameState[key].deaths = deaths;
+    io.emit('state_update', {
+      ceylan: room.gameState.ceylan,
+      hakki: room.gameState.hakki
+    });
+  });
+
+  // --- OYUN BİTTİ ---
+  socket.on('game_over', ({ winner, ceylan, hakki }) => {
+    if (room.gameState && !room.gameState.over) {
+      room.gameState.over = true;
+      io.emit('game_ended', {
+        winner,
+        ceylan,
+        hakki,
+        setup: room.setup
+      });
+    }
+  });
+
+  // --- BAĞLANTI KESİLDİ ---
+  socket.on('disconnect', () => {
+    console.log('Ayrıldı:', socket.id);
+    const player = room.players[socket.id];
+    if (player) {
+      delete room.roles[player.name];
+      delete room.players[socket.id];
+      io.emit('player_disconnected', { name: player.name });
+      io.emit('room_status', {
+        takenRoles: Object.keys(room.roles),
+        playerCount: Object.keys(room.players).length
+      });
+    }
+    // Oda boşsa sıfırla
+    if (Object.keys(room.players).length === 0) {
+      resetRoom();
+    }
   });
 });
 
-function resetGame() {
-  gameRoom = {
-    players: {},
-    gameStarted: false,
-    gameData: {
-      ceylan: {
-        name: '',
-        bet: '',
-        deathLimit: 0,
-        isPlaying: true,
-        currentScore: 0,
-        deaths: 0
-      },
-      hakki: {
-        name: '',
-        bet: '',
-        isPlaying: true,
-        loveMode: false,
-        currentScore: 0,
-        deaths: 0
-      }
-    }
-  };
-  io.emit('gameReset');
-}
-
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server çalışıyor: http://localhost:${PORT}`);
+  console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
