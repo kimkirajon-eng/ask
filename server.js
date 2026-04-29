@@ -5,10 +5,7 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' },
-  transports: ['websocket', 'polling']
-});
+const io = new Server(server, { cors: { origin: '*' }, transports: ['websocket', 'polling'] });
 
 app.use(express.static(path.join(__dirname)));
 app.get('/ping', (req, res) => res.send('pong'));
@@ -16,8 +13,8 @@ app.get('/ping', (req, res) => res.send('pong'));
 function makeRoom() {
   return {
     players: {}, roles: {}, readyToStart: 0,
-    setup: { ceylanBet: null, hakkiBet: null, deathLimit: 3, mode: null },
-    gameState: null, lastState: {}
+    setup: { ceylanBet: null, hakkiBet: null, deathLimit: 3, mode: 'Normal' },
+    gameState: null
   };
 }
 let room = makeRoom();
@@ -28,7 +25,7 @@ io.on('connection', (socket) => {
     room.roles[name] = socket.id;
     room.players[socket.id] = { name };
     socket.emit('character_confirmed', { name });
-    io.emit('room_status', { takenRoles: Object.keys(room.roles), playerCount: Object.keys(room.players).length });
+    io.emit('room_status', { takenRoles: Object.keys(room.roles) });
   });
 
   socket.on('save_bet', ({ name, bet }) => {
@@ -53,38 +50,15 @@ io.on('connection', (socket) => {
     room.readyToStart++;
     if (room.readyToStart >= 2) {
       room.readyToStart = 0;
-      room.gameState = { ceylan: { score: 0, deaths: 0 }, hakki: { score: 0, deaths: 0 }, over: false };
       io.emit('game_start', { setup: room.setup });
-    } else { socket.emit('waiting_for_other'); }
+    }
   });
 
-  socket.on('flap', ({ name }) => io.emit('player_flap', { name }));
-
-  // KRİTİK: Boru senkronizasyonu
   socket.on('new_pipe', (data) => socket.broadcast.emit('sync_pipe', data));
-
-  socket.on('update_state', (data) => {
-    if (!room.gameState) return;
-    const key = data.name === 'Ceylan' ? 'ceylan' : 'hakki';
-    room.gameState[key] = { score: data.score, deaths: data.deaths, x: data.x, y: data.y, vel: data.vel };
-    socket.broadcast.emit('state_update', room.gameState);
-  });
-
-  socket.on('game_over', (data) => {
-    if (room.gameState && !room.gameState.over) {
-      room.gameState.over = true;
-      io.emit('game_ended', { ...data, setup: room.setup });
-    }
-  });
-
-  socket.on('disconnect', () => {
-    const player = room.players[socket.id];
-    if (player) {
-      delete room.roles[player.name];
-      delete room.players[socket.id];
-      if (Object.keys(room.players).length === 0) room = makeRoom();
-    }
-  });
+  socket.on('flap', ({ name }) => io.emit('player_flap', { name }));
+  socket.on('update_state', (data) => socket.broadcast.emit('state_update', data));
+  socket.on('game_over', (data) => io.emit('game_ended', { ...data, setup: room.setup }));
+  socket.on('disconnect', () => { if (Object.keys(io.sockets.sockets).length === 0) room = makeRoom(); });
 });
 
 server.listen(process.env.PORT || 3000);
