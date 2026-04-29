@@ -247,21 +247,31 @@
       background: #ff6b6b;
     }
 
-    /* OYUN EKRANI */
+    /* =====================================================
+       OYUN EKRANI — değiştirilen tek bölüm
+       ===================================================== */
+
+    /* Oyun ekranı: tam viewport yüksekliği, taşma yok */
     .game-screen {
       display: none;
       flex-direction: column;
-      height: 100vh;
-      max-height: 800px;
+      width: 100%;
+      /* Skor barı (50px) + iki canvas = viewport yüksekliği */
+      height: calc(100vh - 40px); /* body padding: 20px*2 */
+      max-height: calc(100vh - 40px);
+      overflow: hidden;
     }
 
     .game-screen.active {
       display: flex;
     }
 
+    /* Skor barı — sabit yükseklik, küçülmez */
     .game-controls {
       background: #f8f9ff;
-      padding: 15px;
+      padding: 0 15px;
+      height: 50px;
+      flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -269,21 +279,16 @@
       border-bottom: 2px solid #ddd;
     }
 
-    .player-info {
-      color: #667eea;
-      font-weight: bold;
-    }
-
-    .player-info.hakki {
-      color: #764ba2;
-    }
-
+    /* İki canvas wrapper'ı tutan flex container */
     .games-container {
-      display: flex;
       flex: 1;
+      display: flex;
       flex-direction: column;
+      min-height: 0; /* flex child'ın küçülebilmesi için şart */
+      overflow: hidden;
     }
 
+    /* Her canvas wrapper tam yarı alanı kaplar */
     .game-canvas-wrapper {
       flex: 1;
       position: relative;
@@ -291,29 +296,39 @@
       border-bottom: 2px solid #667eea;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: stretch; /* canvas height: 100% çalışsın */
+      overflow: hidden;
+      min-height: 0;
     }
 
     .game-canvas-wrapper.hakki {
       background: #f0e0ff;
       border-bottom: none;
+      border-top: 2px solid #764ba2;
     }
 
+    /* Canvas wrapper'ı tam doldurur — JS width/height attribute'u ayarlar */
     canvas {
-      max-width: 100%;
-      max-height: 100%;
+      display: block;
+      width: 100%;
+      height: 100%;
     }
 
     .deaths-counter {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.7);
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.65);
       color: white;
-      padding: 10px 15px;
+      padding: 6px 12px;
       border-radius: 8px;
       font-weight: bold;
+      font-size: 13px;
+      pointer-events: none;
+      z-index: 10;
     }
+
+    /* ===================================================== */
 
     /* OYUN BİTTİ MODAL */
     .game-over-modal {
@@ -474,12 +489,12 @@
 
       <div class="games-container">
         <div class="game-canvas-wrapper">
-          <canvas id="ceylanCanvas" width="400" height="300"></canvas>
+          <canvas id="ceylanCanvas"></canvas>
           <div class="deaths-counter" id="ceylanDeaths">Ölüm: 0</div>
         </div>
 
         <div class="game-canvas-wrapper hakki">
-          <canvas id="hakkiCanvas" width="400" height="300"></canvas>
+          <canvas id="hakkiCanvas"></canvas>
           <div class="deaths-counter" id="hakkiDeaths">Ölüm: 0</div>
         </div>
       </div>
