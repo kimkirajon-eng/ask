@@ -189,12 +189,23 @@ socket.on('state_update', ({ ceylan, hakki }) => {
   if (myName !== 'Ceylan') {
     document.getElementById('ceylanScore').textContent  = ceylan.score;
     document.getElementById('ceylanDeaths').textContent = 'Ölüm: ' + ceylan.deaths;
+    if (ceylan.x !== undefined && birds.ceylan) {
+      birds.ceylan.x = ceylan.x;
+      birds.ceylan.y = ceylan.y;
+      birds.ceylan.vel = ceylan.vel;
+    }
   }
   if (myName !== 'Hakkı') {
     document.getElementById('hakkiScore').textContent  = hakki.score;
     document.getElementById('hakkiDeaths').textContent = 'Ölüm: ' + hakki.deaths;
+    if (hakki.x !== undefined && birds.hakki) {
+      birds.hakki.x = hakki.x;
+      birds.hakki.y = hakki.y;
+      birds.hakki.vel = hakki.vel;
+    }
   }
 });
+
 
 socket.on('game_ended', ({ winner, ceylan, hakki, setup: s }) => {
   showGameOver(winner, ceylan, hakki, s);
@@ -438,7 +449,15 @@ function handleDeath(role) {
   updateDeathUI(role);
 
   const name = role === 'ceylan' ? 'Ceylan' : 'Hakkı';
-  socket.emit('update_state', { name, score: scores[role], deaths: deaths[role] });
+  const bird = birds[role];
+  socket.emit('update_state', { 
+    name, 
+    score: scores[role], 
+    deaths: deaths[role],
+    x: bird.x,
+    y: bird.y,
+    vel: bird.vel
+  });
 
   // Kazanan kontrolü
   if (gameMode === 'Love') {
