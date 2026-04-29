@@ -12,7 +12,13 @@ const io = socketIO(server, {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// ANA DİZİNDEN STATİK DOSYALARI SUN
+app.use(express.static(__dirname));
+
+// Ana sayfayı sun
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // Oyun oturumunu yönet
 let gameRoom = {
@@ -41,7 +47,6 @@ let gameRoom = {
 io.on('connection', (socket) => {
   console.log('Yeni kullanıcı bağlandı:', socket.id);
 
-  // İlk oyuncu (Ceylan) veya ikinci oyuncu (Hakkı) ata
   const playerCount = Object.keys(gameRoom.players).length;
   
   if (playerCount === 0) {
@@ -58,7 +63,6 @@ io.on('connection', (socket) => {
     return;
   }
 
-  // Oyun başlangıç ayarlarını al
   socket.on('gameSetup', (data) => {
     const playerRole = gameRoom.players[socket.id];
     
@@ -71,27 +75,23 @@ io.on('connection', (socket) => {
       gameRoom.gameData.hakki.bet = data.bet;
     }
 
-    // Her iki oyuncu da hazırsa oyunu başlat
     if (gameRoom.gameData.ceylan.name && gameRoom.gameData.hakki.name) {
       gameRoom.gameStarted = true;
       io.emit('startGame', gameRoom.gameData);
     }
   });
 
-  // Zıplama hareketi
   socket.on('jump', (data) => {
     const playerRole = gameRoom.players[socket.id];
     io.emit('playerJumped', { player: playerRole, timestamp: Date.now() });
   });
 
-  // Ölüm olayı
   socket.on('playerDied', (data) => {
     const playerRole = gameRoom.players[socket.id];
     gameRoom.gameData[playerRole].deaths += 1;
     gameRoom.gameData[playerRole].currentScore = data.score;
     gameRoom.gameData[playerRole].isPlaying = false;
 
-    // Aşk Modu kontrol et
     if (gameRoom.gameData.hakki.loveMode) {
       io.emit('gameOver', {
         winner: 'ceylan',
@@ -107,7 +107,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Ölüm sınırına ulaştı mı kontrol et
     if (playerRole === 'ceylan' && gameRoom.gameData.ceylan.deaths >= gameRoom.gameData.ceylan.deathLimit) {
       io.emit('gameOver', {
         winner: 'hakki',
@@ -124,20 +123,17 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Diğer oyuncuya bildir
     io.emit('updateDeaths', {
       ceylan: gameRoom.gameData.ceylan.deaths,
       hakki: gameRoom.gameData.hakki.deaths
     });
   });
 
-  // Aşk Modu aktivasyon
   socket.on('activateLoveMode', () => {
     gameRoom.gameData.hakki.loveMode = true;
     io.emit('loveModeActivated', { message: '💕 Aşk Modu aktif!' });
   });
 
-  // Skor güncelleme
   socket.on('updateScore', (data) => {
     const playerRole = gameRoom.players[socket.id];
     gameRoom.gameData[playerRole].currentScore = data.score;
@@ -147,7 +143,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Bağlantı kesme
   socket.on('disconnect', () => {
     console.log('Kullanıcı ayrıldı:', socket.id);
     delete gameRoom.players[socket.id];
@@ -159,7 +154,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Oyun sıfırla
   socket.on('resetGame', () => {
     resetGame();
   });
