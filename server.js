@@ -146,14 +146,18 @@ io.on('connection', (socket) => {
   });
 
   // ── DURUM GÜNCELLE ───────────────────────────────────
-  socket.on('update_state', ({ name, score, deaths }) => {
-    if (!room.gameState) return;
-    const key = name === 'Ceylan' ? 'ceylan' : 'hakki';
-    room.gameState[key].score  = score;
-    room.gameState[key].deaths = deaths;
-    room.lastState[name] = { score, deaths };
-    io.emit('state_update', { ceylan: room.gameState.ceylan, hakki: room.gameState.hakki });
-  });
+ // ── DURUM GÜNCELLE ───────────────────────────────────
+socket.on('update_state', ({ name, score, deaths, x, y, vel }) => {
+  if (!room.gameState) return;
+  const key = name === 'Ceylan' ? 'ceylan' : 'hakki';
+  room.gameState[key].score  = score;
+  room.gameState[key].deaths = deaths;
+  room.gameState[key].x      = x;
+  room.gameState[key].y      = y;
+  room.gameState[key].vel    = vel;
+  room.lastState[name] = { score, deaths, x, y, vel };
+  io.emit('state_update', { ceylan: room.gameState.ceylan, hakki: room.gameState.hakki });
+});
 
   // ── OYUN BİTTİ ───────────────────────────────────────
   socket.on('game_over', ({ winner, ceylan, hakki }) => {
