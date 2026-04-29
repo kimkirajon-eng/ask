@@ -43,31 +43,88 @@
       margin-bottom: 10px;
     }
 
-    .setup-screen {
-      display: flex;
-      flex-direction: column;
-      gap: 30px;
+    /* EKRAN YÖNETİMİ */
+    .screen {
+      display: none;
       padding: 40px 20px;
     }
 
-    .setup-screen.hidden {
-      display: none;
+    .screen.active {
+      display: block;
     }
 
-    .status-top {
+    .status-message {
       background: #e8f4ff;
       padding: 15px;
       text-align: center;
       color: #667eea;
       font-weight: bold;
       border-radius: 10px;
+      margin-bottom: 30px;
     }
 
+    /* KARAKTER SEÇİMİ EKRANI */
+    .character-selection {
+      display: flex;
+      gap: 30px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 30px;
+    }
+
+    .character-card {
+      background: #f8f9ff;
+      padding: 30px;
+      border-radius: 15px;
+      border: 3px solid #ddd;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      min-width: 200px;
+    }
+
+    .character-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .character-card.selected {
+      border-color: #667eea;
+      background: #e8f4ff;
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+    }
+
+    .character-card.selected.hakki {
+      border-color: #764ba2;
+      background: #f0e0ff;
+      box-shadow: 0 0 20px rgba(118, 75, 162, 0.5);
+    }
+
+    .character-emoji {
+      font-size: 4em;
+      margin-bottom: 15px;
+    }
+
+    .character-card h2 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .character-card.selected h2 {
+      color: #667eea;
+    }
+
+    .character-card.selected.hakki h2 {
+      color: #764ba2;
+    }
+
+    /* BET/KAZANIM EKRANI */
     .player-setup {
       background: #f8f9ff;
       padding: 30px;
       border-radius: 15px;
       border: 3px solid #667eea;
+      margin-bottom: 30px;
     }
 
     .player-setup.hakki {
@@ -150,10 +207,18 @@
       box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
     }
 
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+
     .btn-love {
       background: #ff6b6b;
       color: white;
-      margin-top: 15px;
       width: 100%;
     }
 
@@ -161,6 +226,28 @@
       background: #ff5252;
     }
 
+    .mode-selection {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 15px;
+      font-size: 1.1em;
+    }
+
+    .mode-btn.normal {
+      background: #667eea;
+    }
+
+    .mode-btn.love {
+      background: #ff6b6b;
+    }
+
+    /* OYUN EKRANI */
     .game-screen {
       display: none;
       flex-direction: column;
@@ -228,6 +315,7 @@
       font-weight: bold;
     }
 
+    /* OYUN BİTTİ MODAL */
     .game-over-modal {
       position: fixed;
       top: 0;
@@ -288,6 +376,10 @@
       margin: 15px 0;
       border-left: 4px solid #ffc107;
     }
+
+    .hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -297,52 +389,87 @@
       <p>Sevgilinizle Senkronize Flappy Bird Oyunu</p>
     </div>
 
-    <!-- SETUP SCREEN -->
-    <div class="setup-screen" id="setupScreen">
-      <div class="status-top" id="statusTop">Bağlanılıyor...</div>
-
-      <div class="player-setup" id="ceylanSetup">
-        <h2>👩 Ceylan'ın Bilgileri</h2>
-        <div class="form-group">
-          <label for="ceylanName">Adın:</label>
-          <input type="text" id="ceylanName" placeholder="Adını gir" value="Ceylan">
+    <!-- KARAKTER SEÇİMİ EKRANI -->
+    <div class="screen active" id="characterScreen">
+      <div class="status-message" id="characterStatus">Lütfen karakterinizi seçin</div>
+      
+      <div class="character-selection">
+        <div class="character-card" id="ceylanCard" onclick="selectCharacter('Ceylan')">
+          <div class="character-emoji">👩</div>
+          <h2>Ceylan</h2>
+          <p>Seç</p>
         </div>
-        <div class="form-group">
-          <label for="ceylanBet">Kazanırsam ne alacağım? 🎁</label>
-          <textarea id="ceylanBet" placeholder="Örn: Restoranda akşam yemeği">Restoranda akşam yemeği</textarea>
+        <div class="character-card" id="hakkiCard" onclick="selectCharacter('Hakkı')">
+          <div class="character-emoji">👨</div>
+          <h2>Hakkı</h2>
+          <p>Seç</p>
         </div>
-        <div class="secret-setting">
-          <p>⚠️ GIZLI AYAR (Hakkı görmeyecek):</p>
-          <div class="form-group">
-            <label for="deathLimit">Oyun kaç ölüm sonra bitsin?</label>
-            <input type="number" id="deathLimit" min="1" max="20" value="3">
-            <small>Bu kadar ölümün ardından Hakkı kazanacak</small>
-          </div>
-        </div>
-        <button class="btn-primary" onclick="submitCeylan()">Hazır! ✓</button>
       </div>
 
-      <div class="player-setup hakki" id="hakkiSetup" style="display: none;">
-        <h2>👨 Hakkı'nın Bilgileri</h2>
-        <div class="form-group">
-          <label for="hakkiName">Adın:</label>
-          <input type="text" id="hakkiName" placeholder="Adını gir" value="Hakkı">
-        </div>
-        <div class="form-group">
-          <label for="hakkiBet">Kazanırsam ne alacağım? 🎁</label>
-          <textarea id="hakkiBet" placeholder="Örn: Konser biletleri">Konser biletleri</textarea>
-        </div>
-        <button class="btn-primary" onclick="submitHakki()">Hazır! ✓</button>
-        <button class="btn-love" onclick="activateLoveMode()">💕 AŞK MODU</button>
+      <div class="button-group">
+        <button class="btn-primary" id="characterConfirmBtn" onclick="confirmCharacter()" style="display: none;">
+          Devam Et ✓
+        </button>
       </div>
     </div>
 
-    <!-- GAME SCREEN -->
+    <!-- BET/KAZANIM EKRANI -->
+    <div class="screen" id="betScreen">
+      <div class="status-message">Her ikisinin kazanması için ne alacağını yazın</div>
+
+      <div class="player-setup" id="betSetup">
+        <h2 id="betTitle">Kazanırsam Ne Alacağım? 🎁</h2>
+        <div class="form-group">
+          <label for="betInput">Kazanırsam ne alacağım?</label>
+          <textarea id="betInput" placeholder="Örn: Restoranda akşam yemeği">Restoranda akşam yemeği</textarea>
+        </div>
+        <button class="btn-primary" onclick="confirmBet()">Devam Et ✓</button>
+      </div>
+    </div>
+
+    <!-- CEYLAN GİZLİ AYARLAR -->
+    <div class="screen" id="ceylanSecretScreen">
+      <div class="status-message">⚠️ Hakkı bu ekranı görmüyor! Gizli ayarlarını yap.</div>
+
+      <div class="player-setup">
+        <h2>👩 Ceylan'ın Gizli Ayarları</h2>
+        <div class="form-group">
+          <label for="deathLimit">Oyun kaç ölüm sonra bitsin?</label>
+          <input type="number" id="deathLimit" min="1" max="20" value="3">
+          <small>Bu kadar ölümün ardından Hakkı kazanacak (Normal Modda) veya Ceylan kazanacak (Aşk Modunda)</small>
+        </div>
+        <button class="btn-primary" onclick="confirmCeylanSecret()">Gizli Ayarı Kaydet ✓</button>
+      </div>
+    </div>
+
+    <!-- HAKKI GİZLİ AYARLAR -->
+    <div class="screen" id="hakkiSecretScreen">
+      <div class="status-message">⚠️ Ceylan bu ekranı görmüyor! Oyun modunu seç.</div>
+
+      <div class="player-setup hakki">
+        <h2>👨 Hakkı'nın Gizli Ayarları</h2>
+        <div class="form-group">
+          <label>Oyunu Nasıl Oynayalım?</label>
+          <div class="mode-selection">
+            <button class="mode-btn normal" onclick="selectMode('Normal')">
+              ⚔️ Normal Mod<br><small>İlk ölüme ulaşan kaybeder</small>
+            </button>
+            <button class="mode-btn love" onclick="selectMode('Love')">
+              💕 Aşk Modu<br><small>Ceylan her zaman kazanır</small>
+            </button>
+          </div>
+        </div>
+        <div id="selectedModeDisplay" style="text-align: center; margin-top: 20px; font-weight: bold; color: #666; display: none;"></div>
+        <button class="btn-primary" onclick="confirmHakkiSecret()" id="confirmModeBtn" style="display: none;">Modu Onayla ✓</button>
+      </div>
+    </div>
+
+    <!-- OYUN EKRANI -->
     <div class="game-screen" id="gameScreen">
       <div class="game-controls">
-        <div class="player-info">Ceylan | Skor: <span id="ceylanScore">0</span></div>
+        <div class="player-info">👩 Ceylan | Skor: <span id="ceylanScore">0</span></div>
         <div style="flex: 1; text-align: center;"><strong id="gameTitle">OYUN BAŞLADI!</strong></div>
-        <div class="player-info hakki">Hakkı | Skor: <span id="hakkiScore">0</span></div>
+        <div class="player-info hakki">👨 Hakkı | Skor: <span id="hakkiScore">0</span></div>
       </div>
 
       <div class="games-container">
