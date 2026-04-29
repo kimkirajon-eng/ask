@@ -502,8 +502,17 @@ function showGameOver(winner, ceylan, hakki, s) {
 function updateScoreUI(role) {
   document.getElementById(role === 'ceylan' ? 'ceylanScore' : 'hakkiScore').textContent = scores[role];
   const name = role === 'ceylan' ? 'Ceylan' : 'Hakkı';
-  socket.emit('update_state', { name, score: scores[role], deaths: deaths[role] });
+  const bird = birds[role];
+  socket.emit('update_state', { 
+    name, 
+    score: scores[role], 
+    deaths: deaths[role],
+    x: bird.x,
+    y: bird.y,
+    vel: bird.vel
+  });
 }
+
 function updateDeathUI(role) {
   document.getElementById(role === 'ceylan' ? 'ceylanDeaths' : 'hakkiDeaths').textContent = 'Ölüm: ' + deaths[role];
 }
